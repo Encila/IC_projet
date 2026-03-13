@@ -5,8 +5,12 @@ SAR-DDPM Inference on real SAR images.
 import argparse
 import torch
 import os
+import sys
 import cv2
 import numpy as np
+
+# Add scripts directory to path to import valdata
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import torch.nn.functional as F
 
@@ -27,11 +31,12 @@ from valdata import  ValData, ValDataNew, ValDataNewReal
 from skimage.metrics import peak_signal_noise_ratio as psnr
 from skimage.metrics import structural_similarity as ssim
 
-
-
-val_dir = 'path_to_validation_data/'
-base_path = 'path_to_save_results/'
-resume_checkpoint_clean = './weights/sar_ddpm.pt'
+# Convert relative paths to absolute paths based on script location
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_project_dir = os.path.dirname(_script_dir)
+val_dir = os.path.join(_project_dir, 'datasets/DSIFN/val').replace('\\', '/')
+base_path = os.path.join(_project_dir, 'datasets/DSIFN/').replace('\\', '/')
+resume_checkpoint_clean = os.path.join(_project_dir, "weights/sar_ddpm.pt").replace('\\', '/')
 
 
 

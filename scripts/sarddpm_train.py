@@ -3,6 +3,14 @@ Train SAR-DDPM model.
 """
 
 import argparse
+import sys
+import os
+
+# Add scripts directory to path to import valdata
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Ensure we can import torch
+import torch
 
 import torch.nn.functional as F
 
@@ -20,11 +28,12 @@ from torch.utils.data import DataLoader
 # from train_dataset import TrainData
 from valdata import  ValData, ValDataNew
 
-train_dir = 'path_to_training_data/'
-   
-val_dir = 'path_to_validation_data/'
-
-pretrained_weight_path = "./weights/64_256_upsampler.pt"
+# Convert relative paths to absolute paths based on script location
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_project_dir = os.path.dirname(_script_dir)
+train_dir = os.path.join(_project_dir, 'datasets/DSIFN/train').replace('\\', '/')
+val_dir = os.path.join(_project_dir, 'datasets/DSIFN/val').replace('\\', '/')
+pretrained_weight_path = os.path.join(_project_dir, "weights/64_256_upsampler.pt").replace('\\', '/')
 
 
 def main():

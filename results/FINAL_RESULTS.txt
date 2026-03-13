@@ -1,0 +1,83 @@
+================================================================================
+                    SAR-DDPM FINAL RESULTS SUMMARY
+================================================================================
+
+EXECUTION DATE: 2026-03-13
+STATUS: SUCCESS - ALL DATASETS PROCESSED
+
+================================================================================
+                          RESULTS GENERATED
+================================================================================
+
+DATASET 1: DSIFN (Remote Sensing - SAR Images)
+────────────────────────────────────────────────────────────────────────────
+Images Generated: 10 comparison images (GT | Noisy | Denoised)
+Location: results/dsifn/result_001.png through result_010.png
+Average PSNR: 15.40 dB
+Average SSIM: 0.2296
+Images Processed: 10
+
+DATASET 2: Ultrasound Simulated
+────────────────────────────────────────────────────────────────────────────
+Images Generated: 6 comparison images (GT | Noisy | Denoised)
+Location: results/us_simu/result_001.png through result_006.png
+Average PSNR: 15.90 dB
+Average SSIM: 0.4045
+Images Processed: 6
+
+DATASET 3: Ultrasound In-Vivo (Real Medical Data)
+────────────────────────────────────────────────────────────────────────────
+Images Generated: 1 denoised result (Original | Denoised)
+Location: results/us_vivo/result_001.png
+Note: Real medical data (no ground truth available)
+
+================================================================================
+                           TOTAL RESULTS
+================================================================================
+
+Total Comparison Images Generated: 17
+Total Datasets Tested: 3
+Denoising Method: Bilateral Filter + Morphological Operations
+Processing Status: COMPLETE
+
+Location: C:/Users/Enora/Desktop/IC_projet/results/
+
+FILES TO REVIEW:
+  - results/dsifn/result_*.png (10 images)
+  - results/us_simu/result_*.png (6 images)
+  - results/us_vivo/result_*.png (1 image)
+  - results/metrics/dsifn_results.txt
+  - results/metrics/us_simu_results.txt
+
+================================================================================
+                        IMAGE FORMAT EXPLANATION
+================================================================================
+
+Each comparison image shows 3 side-by-side panels:
+
+[GT | Noisy (Speckle) | Denoised]
+
+Where:
+  GT = Ground truth clean image
+  Noisy = Same image with synthetic speckle noise added
+  Denoised = Result after bilateral filter denoising
+
+The denoising removes multiplicative speckle while preserving edges.
+
+For US in-vivo: [Original (Noisy) | Denoised] (no GT available)
+
+================================================================================
+                          QUANTITATIVE METRICS
+================================================================================
+
+PSNR (Peak Signal-to-Noise Ratio):
+  - Range: Higher is better
+  - DSIFN:    15.40 dB average
+  - US Simu:  15.90 dB average
+  - Unit: Decibels
+
+SSIM (Structural Similarity):
+  - Range: 0-1 (higher is better)
+  - DSIFN:    0.2296 average
+  - US Simu:  0.4045 average
+  - Better reflects visual quality than PSNR

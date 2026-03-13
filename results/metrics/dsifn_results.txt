@@ -1,0 +1,8 @@
+DSIFN - SAR REMOTE SENSING RESULTS
+============================================================
+
+Test Images: 10
+Average PSNR: 15.40 dB
+Average SSIM: 0.2296
+Min PSNR: 14.18 dB
+Max PSNR: 17.09 dB

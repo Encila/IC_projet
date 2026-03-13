@@ -7,8 +7,6 @@ from mpi4py import MPI
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 import cv2
-import imgaug.augmenters as iaa
-from basicsr.data import degradations as degradations
 import cv2
 import math
 import random
@@ -75,14 +73,43 @@ def load_data(
 
 
 def _list_image_files_recursively(data_dir):
+    import os
     results = []
-    for entry in sorted(bf.listdir(data_dir)):
-        full_path = bf.join(data_dir, entry)
-        ext = entry.split(".")[-1]
-        if "." in entry and ext.lower() in ["jpg", "jpeg", "png", "gif"]:
-            results.append(full_path)
-        elif bf.isdir(full_path):
-            results.extend(_list_image_files_recursively(full_path))
+    
+    # Check if this is a local path
+    is_local = not (data_dir.startswith("gs://") or data_dir.startswith("s3://") or data_dir.startswith("az://"))
+    
+    try:
+        if is_local:
+            # Use os.walk for local paths
+            for root, dirs, files in os.walk(data_dir):
+                for file in sorted(files):
+                    ext = file.split(".")[-1]
+                    if "." in file and ext.lower() in ["jpg", "jpeg", "png", "gif"]:
+                        full_path = os.path.join(root, file).replace('\\', '/')
+                        results.append(full_path)
+        else:
+            # Use blobfile for cloud paths
+            for entry in sorted(bf.listdir(data_dir)):
+                full_path = bf.join(data_dir, entry)
+                ext = entry.split(".")[-1]
+                if "." in entry and ext.lower() in ["jpg", "jpeg", "png", "gif"]:
+                    results.append(full_path)
+                elif bf.isdir(full_path):
+                    results.extend(_list_image_files_recursively(full_path))
+    except Exception as e:
+        # Fallback to blobfile if local path fails
+        if is_local:
+            for entry in sorted(bf.listdir(data_dir)):
+                full_path = bf.join(data_dir, entry)
+                ext = entry.split(".")[-1]
+                if "." in entry and ext.lower() in ["jpg", "jpeg", "png", "gif"]:
+                    results.append(full_path)
+                elif bf.isdir(full_path):
+                    results.extend(_list_image_files_recursively(full_path))
+        else:
+            raise
+    
     return results
 
 
@@ -127,7 +154,7 @@ class ImageDataset(Dataset):
         self.gt_paths=gt_paths
         # train_list=train_list[:10000]
 
-        self.deformation = iaa.ElasticTransformation(alpha=[0, 50.], sigma=[4., 5.])
+
 
     def __len__(self):
         return len(self.local_images)
