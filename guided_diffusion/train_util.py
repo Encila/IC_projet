@@ -1,6 +1,7 @@
 import copy
 import functools
 import os
+import sys
 
 import blobfile as bf
 import torch as th
@@ -21,6 +22,8 @@ import math
 # 20-21 within the first ~1K steps of training.
 INITIAL_LOG_LOSS_SCALE = 20.0
 
+# Add parent directory to path for core module imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import core.metrics as Metrics
 # from core.wandb_logger import WandbLogger
 import wandb
@@ -46,6 +49,7 @@ class TrainLoop:
         schedule_sampler=None,
         weight_decay=0.0,
         lr_anneal_steps=0,
+        max_iterations=None,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -68,10 +72,13 @@ class TrainLoop:
         self.schedule_sampler = schedule_sampler or UniformSampler(diffusion)
         self.weight_decay = weight_decay
         self.lr_anneal_steps = lr_anneal_steps
+        self.max_iterations = max_iterations
 
         self.step = 0
         self.resume_step = 0
-        self.global_batch = self.batch_size * dist.get_world_size()
+        # Get world size (1 if distributed not initialized, e.g., single GPU on Windows)
+        world_size = dist.get_world_size() if dist.is_initialized() else 1
+        self.global_batch = self.batch_size * world_size
 
         self.sync_cuda = th.cuda.is_available()
 
@@ -98,7 +105,8 @@ class TrainLoop:
                 for _ in range(len(self.ema_rate))
             ]
 
-        if th.cuda.is_available():
+        # Only use DDP if distributed is initialized and CUDA is available
+        if th.cuda.is_available() and dist.is_initialized():
             print('cuda available')
             self.use_ddp = True
             self.ddp_model = DDP(
@@ -110,7 +118,9 @@ class TrainLoop:
                 find_unused_parameters=True,
             )
         else:
-            if dist.get_world_size() > 1:
+            if th.cuda.is_available():
+                print('cuda available but distributed not initialized - using single GPU')
+            if dist.is_initialized() and dist_util.get_world_size() > 1:
                 logger.warn(
                     "Distributed training requires CUDA. "
                     "Gradients will not be synchronized properly!"
@@ -123,7 +133,7 @@ class TrainLoop:
 
         if resume_checkpoint:
             self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
-            if dist.get_rank() == 0:
+            if dist_util.get_rank() == 0:
                 logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
                 dict_load = dist_util.load_state_dict(resume_checkpoint, map_location=dist_util.dev())
                 self.model.load_state_dict(dict_load, strict=False)
@@ -136,7 +146,7 @@ class TrainLoop:
         main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
         ema_checkpoint = find_ema_checkpoint(main_checkpoint, self.resume_step, rate)
         if ema_checkpoint:
-            if dist.get_rank() == 0:
+            if dist_util.get_rank() == 0:
                 logger.log(f"loading EMA from checkpoint: {ema_checkpoint}...")
                 state_dict = dist_util.load_state_dict(
                     ema_checkpoint, map_location=dist_util.dev()
@@ -167,6 +177,11 @@ class TrainLoop:
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
         ):
+            # Stop after max_iterations if specified
+            if self.max_iterations is not None and self.step >= self.max_iterations:
+                logger.log(f"Reached max_iterations ({self.max_iterations}). Stopping training.")
+                break
+            
             # wandb_logger = WandbLogger()
 
             batch, cond = next(self.data)
@@ -329,7 +344,7 @@ class TrainLoop:
     def save(self):
         def save_checkpoint(rate, params):
             state_dict = self.mp_trainer.master_params_to_state_dict(params)
-            if dist.get_rank() == 0:
+            if dist_util.get_rank() == 0:
                 logger.log(f"saving model {rate}...")
                 if not rate:
                     filename = f"model{(self.step+self.resume_step):06d}.pt"
@@ -342,7 +357,7 @@ class TrainLoop:
         for rate, params in zip(self.ema_rate, self.ema_params):
             save_checkpoint(rate, params)
 
-        if dist.get_rank() == 0:
+        if dist_util.get_rank() == 0:
             with bf.BlobFile(
                 bf.join(get_blob_logdir(), f"opt{(self.step+self.resume_step):06d}.pt"),
                 "wb",
@@ -354,7 +369,7 @@ class TrainLoop:
     def save_val(self):
         def save_checkpoint_val(rate, params):
             state_dict = self.mp_trainer.master_params_to_state_dict(params)
-            if dist.get_rank() == 0:
+            if dist_util.get_rank() == 0:
                 logger.log(f"saving model {rate}...")
                 if not rate:
                     filename = f"model{(self.step+self.resume_step):06d}.pt"
@@ -367,7 +382,7 @@ class TrainLoop:
         for rate, params in zip(self.ema_rate, self.ema_params):
             save_checkpoint_val(rate, params)
 
-        if dist.get_rank() == 0:
+        if dist_util.get_rank() == 0:
             with bf.BlobFile(
                 bf.join(get_blob_logdir(), f"opt{(self.step+self.resume_step):06d}.pt"),
                 "wb",

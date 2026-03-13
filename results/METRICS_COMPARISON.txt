@@ -1,0 +1,17 @@
+================================================================================
+METRICS COMPARISON: BASELINE vs TRAINED MODEL
+================================================================================
+
+DSIFN:
+  Baseline  - PSNR: 15.14 dB, SSIM: 0.1919
+  Trained   - PSNR: 11.43 dB, SSIM: 0.1524
+  Improvement - PSNR: -3.71 dB, SSIM: -0.0395
+
+US-Simulated:
+  Baseline  - PSNR: 15.47 dB, SSIM: 0.2554
+  Trained   - PSNR: 10.18 dB, SSIM: 0.0644
+  Improvement - PSNR: -5.29 dB, SSIM: -0.1910
+
+
+NOTE: Metrics calculated from extracted images
+Combined images format: [GT | Noisy | Denoised]

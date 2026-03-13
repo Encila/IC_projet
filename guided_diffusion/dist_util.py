@@ -5,6 +5,8 @@ Helpers for distributed training.
 import io
 import os
 import socket
+import sys
+import platform
 
 import blobfile as bf
 from mpi4py import MPI
@@ -24,6 +26,14 @@ def setup_dist():
     """
     if dist.is_initialized():
         return
+    
+    # On Windows, skip distributed initialization for single-GPU training
+    # as libuv is not available in standard PyTorch builds
+    if platform.system() == "Windows" and MPI.COMM_WORLD.Get_size() == 1:
+        os.environ["RANK"] = "0"
+        os.environ["WORLD_SIZE"] = "1"
+        return
+    
     os.environ["CUDA_VISIBLE_DEVICES"] = f"{MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE}"
     # os.environ["CUDA_VISIBLE_DEVICES"] = '1'
     # print(os.environ["CUDA_VISIBLE_DEVICES"])
@@ -53,14 +63,43 @@ def dev():
     return th.device("cpu")
 
 
+def get_rank():
+    """
+    Get the rank of the current process.
+    Returns 0 if distributed is not initialized (single GPU training).
+    """
+    if not dist.is_initialized():
+        return 0
+    return dist.get_rank()
+
+
 def load_state_dict(path, **kwargs):
     """
     Load a PyTorch file without redundant fetches across MPI ranks.
+    For local paths, uses standard file I/O. For cloud paths, uses blobfile.
     """
     chunk_size = 2 ** 30  # MPI has a relatively small size limit
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        with bf.BlobFile(path, "rb") as f:
-            data = f.read()
+    rank = MPI.COMM_WORLD.Get_rank()
+    
+    # Use standard file I/O for local paths, blobfile for cloud paths
+    is_local = not (path.startswith("gs://") or path.startswith("s3://") or path.startswith("az://"))
+    
+    if rank == 0:
+        try:
+            if is_local:
+                with open(path, "rb") as f:
+                    data = f.read()
+            else:
+                with bf.BlobFile(path, "rb") as f:
+                    data = f.read()
+        except Exception as e:
+            # If local open fails, try blobfile as fallback
+            if is_local:
+                with bf.BlobFile(path, "rb") as f:
+                    data = f.read()
+            else:
+                raise
+                
         num_chunks = len(data) // chunk_size
         if len(data) % chunk_size:
             num_chunks += 1
@@ -80,6 +119,9 @@ def sync_params(params):
     """
     Synchronize a sequence of Tensors across ranks from rank 0.
     """
+    # Skip if distributed is not initialized (single GPU training)
+    if not dist.is_initialized():
+        return
     for p in params:
         with th.no_grad():
             dist.broadcast(p, 0)

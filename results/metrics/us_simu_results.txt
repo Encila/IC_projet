@@ -1,0 +1,6 @@
+US SIMULATED - ULTRASOUND RESULTS
+============================================================
+
+Test Images: 6
+Average PSNR: 15.90 dB
+Average SSIM: 0.4045

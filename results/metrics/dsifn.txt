@@ -1,0 +1,6 @@
+DSIFN Test Results
+==================================================
+Average PSNR: 15.94 dB
+Average SSIM: 0.1645
+Individual PSNR: [np.float64(16.85240360971415), np.float64(14.69603514052313), np.float64(16.265417970395166)]
+Individual SSIM: [np.float64(0.19891513216053833), np.float64(0.17297403835617123), np.float64(0.12171156625929465)]
